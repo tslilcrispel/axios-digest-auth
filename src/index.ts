@@ -65,10 +65,10 @@ export default class AxiosDigestAuth {
     } catch (resp1: any) {
         const newOptions = this.getNewRequestOpts(opts, resp1)
         try {
-            return this.axios.request(newOptions);
+            return await this.axios.request(newOptions);
         }
         catch (resp2: any) {
-            if (resp2.response && resp2.response.status === 401 && !resp2.response.headers["www-authenticate"]?.includes('stale=true')) {
+            if (resp2.response && resp2.response.status === 401 && resp2.response.headers["www-authenticate"]?.includes('stale=true')) {
                 const reChallengeOpts = this.getNewRequestOpts(newOptions, resp2)
                 return this.axios.request(reChallengeOpts);
             }
