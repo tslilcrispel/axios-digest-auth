@@ -6,7 +6,7 @@ project which also uses Axios.
 This fork also support ```STALE=true``` when there is a need for a rechallenge with the server.
 
 ```
-$ npm i @mhoc/axios-digest-auth
+$ npm i @tslilcrispel/axios-digest-auth
 ```
 
 Forked From [@mhoc/axios-digest-auth](https://github.com/mhoc/axios-digest-auth)
