@@ -6,8 +6,8 @@ import * as axios from "axios";
  * Options to configure the AxiosDigestAuth instance.
  */
 export interface AxiosDigestAuthOpts {
-  /** 
-   * optionally provide your own axios instance. if this is not provided, one will be created for 
+  /**
+   * optionally provide your own axios instance. if this is not provided, one will be created for
    * you with default settings.
    */
   axios?: axios.AxiosInstance;
@@ -31,17 +31,14 @@ export default class AxiosDigestAuth {
     this.username = username;
   }
 
-  public async request(opts: axios.AxiosRequestConfig): Promise<axios.AxiosResponse> {
-    try {
-      return await this.axios.request(opts);
-    } catch (resp1: any) {
-      if (resp1.response === undefined
-          || resp1.response.status !== 401
-          || !resp1.response.headers["www-authenticate"]?.includes('nonce')
+  private getNewRequestOpts(opts: axios.AxiosRequestConfig, resp: any) {
+      if (resp.response === undefined
+          || resp.response.status !== 401
+          || !resp.response.headers["www-authenticate"]?.includes('nonce')
       ) {
-        throw resp1;
+          throw resp;
       }
-      const authDetails = resp1.response.headers['www-authenticate'].split(',').map((v: string) => v.split('='));
+      const authDetails = resp.response.headers['www-authenticate'].split(',').map((v: string) => v.split('='));
       ++this.count;
       const nonceCount = ('00000000' + this.count).slice(-8);
       const cnonce = crypto.randomBytes(24).toString('hex');
@@ -52,14 +49,28 @@ export default class AxiosDigestAuth {
       const ha2 = crypto.createHash('md5').update(`${opts.method ?? "GET"}:${path}`).digest('hex');
       const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${nonceCount}:${cnonce}:auth:${ha2}`).digest('hex');
       const authorization = `Digest username="${this.username}",realm="${realm}",` +
-        `nonce="${nonce}",uri="${path}",qop="auth",algorithm="MD5",` +
-        `response="${response}",nc="${nonceCount}",cnonce="${cnonce}"`;
+          `nonce="${nonce}",uri="${path}",qop="auth",algorithm="MD5",` +
+          `response="${response}",nc="${nonceCount}",cnonce="${cnonce}"`;
       if (opts.headers) {
-        opts.headers["authorization"] = authorization;
+          opts.headers["authorization"] = authorization;
       } else {
-        opts.headers = { authorization };
+          opts.headers = { authorization };
       }
-      return this.axios.request(opts);
+      return opts
+  }
+
+  public async request(opts: axios.AxiosRequestConfig): Promise<axios.AxiosResponse> {
+    try {
+      return await this.axios.request(opts);
+    } catch (resp1: any) {
+        const newOptions = this.getNewRequestOpts(opts, resp1)
+        try {
+            return this.axios.request(newOptions);
+        }
+        catch (resp2: any) {
+            const reChallengeOpts = this.getNewRequestOpts(newOptions, resp2)
+            return this.axios.request(reChallengeOpts);
+        }
     }
   }
 
